@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Donaciones</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: url("https://hemaware.org/sites/default/files/styles/featured_image_style/public/images/key-images/1180804892-donate-give.jpg.webp?itok=lMphpjQQ");
+      background-position: center;
+      background-size: cover;
+      backdrop-filter: blur(20px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      font-family: Inter, system-ui, Arial, sans-serif;
+      color: #111;
+    }
+
+    .container {
+      width: 90%;
+      max-width: 1100px;
+      margin-bottom: 16px;
+    }
+
+    /* header row (labels) */
+    .row-title {
+      display: grid;
+      grid-template-columns: 72px 1fr 1fr 120px 1fr 200px;
+      gap: 8px;
+      align-items: center;
+      background: whitesmoke;
+      border: 1px solid rgba(0,0,0,0.12);
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .row-title .tile { text-align: left; padding-left: 8px; color: #333; }
+
+    /* each data row */
+    .row {
+      display: grid;
+      grid-template-columns: 72px 1fr 1fr 120px 1fr 200px;
+      gap: 8px;
+      align-items: center;
+      background: #fff;
+      border: 4px solid rgba(0,0,0,0.2);
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+
+    .tile {
+      padding: 6px 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* labels that appear on small screens */
+    @media (max-width: 680px) {
+      .row, .row-title {
+        grid-template-columns: 1fr;
+      }
+      .tile {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        white-space: normal;
+        align-items: center;
+      }
+      .tile[data-label]::before {
+        content: attr(data-label);
+        font-weight: 700;
+        margin-right: 12px;
+        color: #444;
+        min-width: 120px;
+      }
+      .row-title .tile[data-label]::before { display:none; } /* hide duplicate label row */
+    }
+
+    /* buttons */
+    .tile-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      align-items: center;
+    }
+    .action-button {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-weight: 700;
+      height: 36px;
+      min-width: 70px;
+    }
+    .edit { background: darkcyan; }
+    .delete { background: #c0392b; }
+    .save { background: #2d8f2d; }
+    .cancel { background: #95a5a6; color: #fff; }
+
+    /* add button */
+    #add-button {
+      padding: 12px 18px;
+      background-color: greenyellow;
+      border: none;
+      border-radius: 999px;
+      font-size: 20px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    }
+    #add-button:hover { transform: translateY(-2px); }
+
+    /* inline edit inputs */
+    .edit-input {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #d0d0d0;
+      font-size: 0.95rem;
+      background: #fff;
+    }
+
+    /* modal agregar (simple) */
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background: rgba(0,0,0,0.5);
+      padding: 16px;
+      z-index: 40;
+    }
+    .modal[aria-hidden="false"] { display: grid; }
+    .modal-box {
+      width: 100%;
+      max-width: 420px;
+      background: white;
+      padding: 18px;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .modal-box h3 { margin-bottom: 10px; }
+    .field { margin-bottom: 8px; display:flex; flex-direction: column; gap:6px; }
+    .field input { padding: 8px; border-radius: 8px; border: 1px solid #ddd; }
+    .modal-actions { display:flex; gap:8px; margin-top: 12px; }
+    .btn { padding: 10px; border-radius: 8px; border: none; font-weight:700; cursor:pointer; flex:1 }
+    .btn-save { background: #2ecc71; color:white }
+    .btn-cancel { background: #95a5a6; color:white }
+
+  </style>
+</head>
+<body>
+  <div class="container" id="container">
+    <div class="row-title" aria-hidden="false">
+      <p class="tile">ID</p>
+      <p class="tile">Donador</p>
+      <p class="tile">Tipo de donación</p>
+      <p class="tile">Monto</p>
+      <p class="tile">Destino</p>
+      <div class="tile">Acciones</div>
+    </div>
+    <!-- rows will be injected here -->
+  </div>
+
+  <button id="add-button" title="Agregar donación">+ Agregar</button>
+
+  <!-- Modal agregar -->
+  <div class="modal" id="modal" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h3 id="modal-title">Agregar donación</h3>
+      <div class="field">
+        <label>Donador</label>
+        <input id="m_donador" type="text" placeholder="Nombre" />
+      </div>
+      <div class="field">
+        <label>Tipo</label>
+        <input id="m_tipo" type="text" placeholder="Ej: efectivo, alimentos" />
+      </div>
+      <div class="field">
+        <label>Monto</label>
+        <input id="m_monto" type="number" placeholder="5000" />
+      </div>
+      <div class="field">
+        <label>Destino</label>
+        <input id="m_destino" type="text" placeholder="Ej: El ancianato" />
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-save" id="modal-save">Guardar</button>
+        <button class="btn btn-cancel" id="modal-cancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // datos iniciales (tomados del ejemplo original)
+    let donaciones = [
+      { id: 1, donador: "Pipe", tipoDonacion: "efectivo", monto: 5000, destino: "El ancianato" },
+      { id: 2, donador: "Pipe", tipoDonacion: "efectivo", monto: 5000, destino: "El ancianato" },
+      { id: 3, donador: "Pipe", tipoDonacion: "efectivo", monto: 5000, destino: "El ancianato" },
+      { id: 4, donador: "Pipe", tipoDonacion: "efectivo", monto: 5000, destino: "El ancianato" },
+      { id: 5, donador: "Pipe", tipoDonacion: "efectivo", monto: 5000, destino: "El ancianato" },
+      { id: 6, donador: "Pipe", tipoDonacion: "efectivo", monto: 5000, destino: "El ancianato" },
+      { id: 7, donador: "Pipe", tipoDonacion: "efectivo", monto: 5000, destino: "El ancianato" }
+    ];
+
+    const container = document.getElementById('container');
+    const addButton = document.getElementById('add-button');
+    const modal = document.getElementById('modal');
+    const modalSave = document.getElementById('modal-save');
+    const modalCancel = document.getElementById('modal-cancel');
+
+    // inputs modal
+    const m_donador = document.getElementById('m_donador');
+    const m_tipo = document.getElementById('m_tipo');
+    const m_monto = document.getElementById('m_monto');
+    const m_destino = document.getElementById('m_destino');
+
+    // render de filas (elimina filas .row previas y crea nuevas)
+    function renderDonaciones(){
+      // eliminar filas anteriores (solo las que tengan class 'row' — los datos)
+      const prev = container.querySelectorAll('.row');
+      prev.forEach(r => r.remove());
+
+      // crear filas
+      donaciones.forEach(d => {
+        const row = document.createElement('div');
+        row.classList.add('row');
+        row.dataset.id = d.id;
+
+        const rowId = document.createElement('p'); rowId.classList.add('tile'); rowId.innerText = d.id; rowId.setAttribute('data-label','ID');
+        const rowDonador = document.createElement('p'); rowDonador.classList.add('tile'); rowDonador.innerText = d.donador; rowDonador.setAttribute('data-label','Donador');
+        const rowTipo = document.createElement('p'); rowTipo.classList.add('tile'); rowTipo.innerText = d.tipoDonacion; rowTipo.setAttribute('data-label','Tipo');
+        const rowMonto = document.createElement('p'); rowMonto.classList.add('tile'); rowMonto.innerText = d.monto; rowMonto.setAttribute('data-label','Monto');
+        const rowDestino = document.createElement('p'); rowDestino.classList.add('tile'); rowDestino.innerText = d.destino; rowDestino.setAttribute('data-label','Destino');
+
+        // botones
+        const tileButtons = document.createElement('div');
+        tileButtons.classList.add('tile', 'tile-buttons');
+
+        const editButton = document.createElement('button');
+        editButton.innerText = 'Editar';
+        editButton.classList.add('action-button','edit');
+        editButton.dataset.id = d.id;
+        editButton.addEventListener('click', () => startEdit(d.id));
+
+        const deleteButton = document.createElement('button');
+        deleteButton.innerText = 'Eliminar';
+        deleteButton.classList.add('action-button','delete');
+        deleteButton.dataset.id = d.id;
+        deleteButton.addEventListener('click', () => deleteDonacion(d.id));
+
+        tileButtons.append(editButton, deleteButton);
+
+        row.append(rowId, rowDonador, rowTipo, rowMonto, rowDestino, tileButtons);
+        container.appendChild(row);
+      });
+    }
+
+    // eliminar por id (seguro)
+    function deleteDonacion(id){
+      const ok = confirm('¿Eliminar la donación con ID ' + id + '?');
+      if (!ok) return;
+      donaciones = donaciones.filter(x => x.id !== id);
+      renderDonaciones();
+    }
+
+    // iniciar edición inline de una fila
+    function startEdit(id){
+      const index = donaciones.findIndex(x => x.id === id);
+      if (index === -1) return;
+
+      const row = container.querySelector(`.row[data-id="${id}"]`);
+      if (!row) return;
+
+      // obtener celdas (excluyendo tile-buttons)
+      const tiles = Array.from(row.querySelectorAll('.tile')).filter(t => !t.classList.contains('tile-buttons'));
+      // tiles: [id, donador, tipo, monto, destino]
+      // guardamos valores actuales por si cancel
+      const current = {
+        donador: tiles[1].innerText,
+        tipo: tiles[2].innerText,
+        monto: tiles[3].innerText,
+        destino: tiles[4].innerText
+      };
+
+      // reemplazar las 4 celdas editables con inputs
+      const inputDonador = document.createElement('input');
+      inputDonador.type = 'text';
+      inputDonador.value = current.donador;
+      inputDonador.className = 'edit-input';
+
+      const inputTipo = document.createElement('input');
+      inputTipo.type = 'text';
+      inputTipo.value = current.tipo;
+      inputTipo.className = 'edit-input';
+
+      const inputMonto = document.createElement('input');
+      inputMonto.type = 'number';
+      inputMonto.value = current.monto;
+      inputMonto.className = 'edit-input';
+
+      const inputDestino = document.createElement('input');
+      inputDestino.type = 'text';
+      inputDestino.value = current.destino;
+      inputDestino.className = 'edit-input';
+
+      tiles[1].innerHTML = ''; tiles[1].appendChild(inputDonador);
+      tiles[2].innerHTML = ''; tiles[2].appendChild(inputTipo);
+      tiles[3].innerHTML = ''; tiles[3].appendChild(inputMonto);
+      tiles[4].innerHTML = ''; tiles[4].appendChild(inputDestino);
+
+      // reemplazar botones por Guardar / Cancelar
+      const buttonsContainer = row.querySelector('.tile-buttons');
+      buttonsContainer.innerHTML = '';
+
+      const saveBtn = document.createElement('button');
+      saveBtn.innerText = 'Guardar';
+      saveBtn.classList.add('action-button','save');
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.innerText = 'Cancelar';
+      cancelBtn.classList.add('action-button','cancel');
+
+      saveBtn.addEventListener('click', () => {
+        const newDonador = inputDonador.value.trim();
+        const newTipo = inputTipo.value.trim();
+        const newMonto = Number(inputMonto.value) || 0;
+        const newDestino = inputDestino.value.trim();
+
+        if (!newDonador || !newTipo || !newDestino) {
+          alert('Por favor completa Donador, Tipo y Destino.');
+          return;
+        }
+
+        // actualizar array
+        donaciones[index] = {
+          ...donaciones[index],
+          donador: newDonador,
+          tipoDonacion: newTipo,
+          monto: newMonto,
+          destino: newDestino
+        };
+
+        renderDonaciones();
+      });
+
+      cancelBtn.addEventListener('click', () => {
+        // revertir
+        renderDonaciones();
+      });
+
+      buttonsContainer.append(saveBtn, cancelBtn);
+
+      // foco en primer input
+      inputDonador.focus();
+    }
+
+    // abrir modal agregar
+    function openModal(){
+      modal.setAttribute('aria-hidden','false');
+      m_donador.value = '';
+      m_tipo.value = '';
+      m_monto.value = '';
+      m_destino.value = '';
+      setTimeout(() => m_donador.focus(), 50);
+    }
+    function closeModal(){
+      modal.setAttribute('aria-hidden','true');
+    }
+
+    // guardar nueva donación desde modal
+    modalSave.addEventListener('click', () => {
+      const donador = m_donador.value.trim();
+      const tipo = m_tipo.value.trim();
+      const monto = Number(m_monto.value) || 0;
+      const destino = m_destino.value.trim();
+
+      if (!donador || !tipo || !destino) {
+        alert('Por favor completa Donador, Tipo y Destino.');
+        return;
+      }
+
+      const maxId = donaciones.length ? Math.max(...donaciones.map(x => x.id)) : 0;
+      const nuevo = { id: maxId + 1, donador, tipoDonacion: tipo, monto, destino };
+      donaciones.push(nuevo);
+      closeModal();
+      renderDonaciones();
+    });
+
+    modalCancel.addEventListener('click', closeModal);
+    addButton.addEventListener('click', openModal);
+
+    // cerrar modal al clickear fuera del cuadro
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+    // cerrar con Escape
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') {
+      if (modal.getAttribute('aria-hidden') === 'false') closeModal();
+    }});
+
+    // inicializar
+    renderDonaciones();
+  </script>
+</body>
+</html>
+
